@@ -8,7 +8,6 @@ from otree.api import (
     Currency as c,
     currency_range,
 )
-from random import randint
 import numpy as np
 import random
 import json
@@ -25,7 +24,7 @@ class Constants(BaseConstants):
     num_rounds = 6
     pago_A = c(2000)
     pago_B = c(1000)
-    ronda_pagar = randint(2, num_rounds+1)
+    ronda_pagar = random.randint(2, num_rounds)
 
 class Subsession(BaseSubsession):
     meritocracia = models.BooleanField()
@@ -119,8 +118,12 @@ class Subsession(BaseSubsession):
         for j in self.get_players():
             j.set_pago_ronda()
             j.set_posicion_grupo()
-            j.set_posicion_contrato(),
+            j.set_posicion_contrato()
             j.set_probabilidad_contrato_A()
+
+    def set_pago_jugadores(self):
+        for j in self.get_players():
+            j.set_pago()
 
 class Group(BaseGroup):
     #solo deben declararse variables por medio de models.
@@ -139,7 +142,8 @@ class Group(BaseGroup):
         return palabras_torneo
 
     def set_asignar_contrato_A(self):
-        rankA, rankB = self.get_ranking_group()
+        rankA = json.loads(self.rankA)
+        rankB = json.loads(self.rankB)
         p2 = self.get_player_by_id(int(rankA.keys()[1].split('j')[1]))
         p3 = self.get_player_by_id(int(rankB.keys()[0].split('j')[1]))
         self.ganador_contrato_A = random.choices([rankA.keys()[1].split('j')[1], rankB.keys()[0].split('j')[1]],
@@ -179,19 +183,30 @@ class Player(BasePlayer):
     posicion_grupo = models.IntegerField() #De 1-4
     posicion_contrato = models.IntegerField() #De 1-2
     posicion_contrato_torneo = models.IntegerField() #De 1-2
-    pago = models.CurrencyField()
     pago_ronda = models.CurrencyField()
+    pago = models.CurrencyField()
 
     #Esta función define el pago final
-    def set_pagar_jugador(self):
-        jugadores = self.get.players()
-        ronda = self.subsession.get_ronda_pagar()
-        for j in jugadores:
-            j.pago = j.pago_ronda.in_all_rounds()[ronda - 1]
-
+    def set_pago(self):
+        if (self.round_number==Constants.num_rounds):
+#           jugadores = self.get_players()
+            ronda = self.subsession.ronda_pagar
+            pagos_rondas = []
+            for j in self.in_all_rounds():
+                pagos_rondas.append(j.pago_ronda)
+            self.pago= pagos_rondas[ronda - 1]
+        else:
+            self.pago= 0
+ #           j.pago = j.pago_ronda.in_all_rounds()[ronda - 1]
+        
     def set_probabilidad_contrato_A(self):
         if self.subsession.observabilidad == True:
-            self.probabilidad_contrato_A = self.palabras / self.group.get_palabras_torneo()
+            if (self.contrato_A == True and self.posicion_contrato == 1):
+                self.probabilidad_contrato_A = 1
+            elif (self.contrato_A == False and self.posicion_contrato == 2):
+                self.probabilidad_contrato_A = 0
+            else:
+                self.probabilidad_contrato_A = self.palabras / self.group.get_palabras_torneo()
         else:
             self.probabilidad_contrato_A = 0.5
 
@@ -232,3 +247,4 @@ class Player(BasePlayer):
         else:
             self.pago_ronda = Constants.pago_B * self.palabras
         # cantidad de dinero que recibiría el jugador si la ronda actual es elegida para ser pagada
+ 
